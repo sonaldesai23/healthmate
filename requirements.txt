@@ -1,0 +1,32 @@
+# ============================================
+# HealthMate Advanced Backend Requirements
+# ============================================
+
+# Web Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Data Validation
+pydantic==2.5.0
+
+# HTTP Requests (for Grok + Gemini APIs)
+requests==2.31.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# AI/ML - Embeddings & Vector Search (kept for RAG fallback)
+sentence-transformers==2.2.2
+
+faiss-cpu==1.13.2
+# Numerical Computing
+# numpy==1.24.3
+
+# Logging
+logging==0.5.1.2
+
+# Optional: For development
+# pytest==7.4.3
+# pytest-cov==4.1.0
+# black==23.11.0
+# flake8==6.1.0

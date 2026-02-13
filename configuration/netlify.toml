@@ -1,0 +1,42 @@
+# ============================================
+# Netlify Configuration for HealthMate Frontend
+# ============================================
+
+[build]
+  # Build command
+  command = "cd frontend && npm install && npm run build"
+  
+  # Publish directory
+  publish = "frontend/build"
+
+[[redirects]]
+  # Redirect all routes to index.html for SPA
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Environment variables (set in Netlify dashboard)
+# [context.production.environment]
+#   REACT_APP_API_URL = "https://your-backend-domain.com"
+#
+# [context.deploy-preview.environment]
+#   REACT_APP_API_URL = "http://localhost:8000"
+
+# Function configuration for serverless APIs (optional)
+# [functions]
+#   directory = "functions"
