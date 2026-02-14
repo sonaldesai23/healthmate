@@ -23,7 +23,7 @@ faiss-cpu==1.13.2
 # numpy==1.24.3
 
 # Logging
-logging==0.5.1.2
+logging==0.4.9.6
 
 # Optional: For development
 # pytest==7.4.3

@@ -236,7 +236,7 @@ source venv/bin/activate    # Mac/Linux
 venv\Scripts\activate       # Windows
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt  
 
 # Add .env file with API keys
 cp .env.example .env
