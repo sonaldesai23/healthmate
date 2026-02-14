@@ -9,6 +9,10 @@
   # Publish directory
   publish = "frontend/build"
 
+[build.environment]
+  SKIP_PIP = "true"
+  NODE_VERSION = "18"
+  
 [[redirects]]
   # Redirect all routes to index.html for SPA
   from = "/*"
