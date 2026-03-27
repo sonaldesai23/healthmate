@@ -1,3 +1,4 @@
+import { supabase } from '../supabaseClient';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ChatInterface.css';
@@ -118,6 +119,18 @@ const ChatInterface = ({ apiUrl }) => {
         session_id: currentSessionId,
         user_message: userMessage
       });
+      await supabase.from('chat_sessions').insert([
+      {
+        message: userMessage,
+        role: 'user',
+        timestamp: new Date()
+      },
+      {
+        message: response.data.assistant_message,
+        role: 'assistant',
+        timestamp: new Date()
+      }
+      ]);
 
       // Add assistant response
       const assistantMessage = {
@@ -376,7 +389,9 @@ In emergencies, CALL 911 IMMEDIATELY.
                     <span className="message-text">{msg.content}</span>
                   </div>
                   <small className="message-time">
-                    {msg.timestamp.toLocaleTimeString()}
+                    {typeof msg.timestamp === 'string' 
+                      ? msg.timestamp 
+                      : msg.timestamp?.toLocaleTimeString?.()}
                   </small>
                 </div>
               ))}

@@ -1,6 +1,5 @@
 """
-HealthMate FastAPI Backend - Updated Version
-Using Grok AI + Gemini API for Analysis
+Advanced analysis using OpenRouter LLM
 """
 
 import logging
@@ -12,11 +11,16 @@ from datetime import datetime
 import json
 import uuid
 
+from ml_service import MLService  # ✅ ADDED
 from triage_engine import TriageEngine, PatientProfile
 from rag_system import RAGSystem
 from risk_scorer import RiskScorer
 from llm_integration import TriageAnalysisPipeline
 from triage_based_model import TriageBasedAssessment
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
 app = FastAPI(
-    title="HealthMate Advanced - Grok + Gemini",
+    title="HealthMate Advanced - OpenRouter LLM",
     description="AI-powered emergency triage with Grok analysis & Gemini reports",
     version="2.0.0"
 )
@@ -45,6 +49,9 @@ app.add_middleware(
 triage_engine = TriageEngine()
 rag_system = RAGSystem()
 risk_scorer = RiskScorer()
+
+# ✅ LOAD ML MODEL GLOBALLY
+ml_service = MLService()
 
 # Session store
 sessions: Dict[str, Dict] = {}
@@ -69,9 +76,8 @@ class ConversationResponse(BaseModel):
 
 
 class AdvancedAnalysisResponse(BaseModel):
-    """Advanced analysis from Grok + Gemini"""
     session_id: str
-    grok_analysis: str
+    analysis: str
     final_report: str
     urgency_level: str
     model_used: str
@@ -96,7 +102,7 @@ async def health_check():
         "status": "healthy",
         "service": "HealthMate Advanced",
         "version": "2.0.0",
-        "features": ["Grok Analysis", "Gemini Reports", "Triage-Based Diagnostics"]
+        "features": ["OpenRouter LLM", "Triage-Based Diagnostics"]
     }
 
 
@@ -114,6 +120,7 @@ async def start_session():
         "risk_assessment": None,
         "diagnostic_answers": [],
         "current_symptom": None,
+        "ml_predictions": []  # ✅ ADDED
     }
     
     greeting = triage_engine.get_initial_greeting()
@@ -153,7 +160,15 @@ async def process_conversation(request: ConversationRequest):
         sessions[session_id]["completed"] = True
         sessions[session_id]["risk_assessment"] = risk_score_obj
         sessions[session_id]["current_symptom"] = patient_profile.primary_symptom
-        
+
+        # =========================================
+        # 🧠 ML PREDICTION STEP (ADDED)
+        # =========================================
+        user_summary = json.dumps(patient_profile.to_dict(), ensure_ascii=False)
+        predictions = ml_service.predict(user_summary)
+        sessions[session_id]["ml_predictions"] = predictions
+
+        logger.info(f"ML Predictions: {predictions}")
         logger.info(f"Triage complete: {session_id}")
     
     return ConversationResponse(
@@ -178,13 +193,15 @@ async def advanced_analysis(session_id: str):
     
     patient_profile = triage_engine.get_patient_profile()
     risk_score_obj = sessions[session_id]["risk_assessment"]
+    ml_predictions = sessions[session_id].get("ml_predictions", [])  # ✅ ADDED
     
     logger.info(f"Starting advanced analysis: {session_id}")
     
     # Run Grok + Gemini pipeline
     result = TriageAnalysisPipeline.process_patient(
         patient_profile=patient_profile.to_dict(),
-        urgency_level=risk_score_obj.urgency_level.value[0]
+        urgency_level=risk_score_obj.urgency_level.value[0],
+        ml_predictions=ml_predictions  # ✅ ADDED
     )
     
     if not result["success"]:
@@ -195,66 +212,11 @@ async def advanced_analysis(session_id: str):
     
     return AdvancedAnalysisResponse(
         session_id=session_id,
-        grok_analysis=result["grok_analysis"],
+        analysis=result["analysis"],
         final_report=result["final_report"],
         urgency_level=result["urgency_level"],
-        model_used="Grok + Gemini"
+        model_used="OpenRouter Llama 3.3"
     )
-
-
-@app.post("/api/diagnostic-question/{session_id}", response_model=DiagnosticQuestionResponse)
-async def get_diagnostic_question(session_id: str):
-    """
-    NEW: Get next diagnostic question (triage-based)
-    """
-    
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    symptom = sessions[session_id].get("current_symptom", "")
-    answers = sessions[session_id].get("diagnostic_answers", [])
-    
-    if not symptom:
-        raise HTTPException(status_code=400, detail="No symptom found")
-    
-    # Get next question
-    next_question = TriageBasedAssessment.get_next_diagnostic_question(symptom, answers)
-    
-    if not next_question:
-        # All questions answered - provide assessment
-        assessment = TriageBasedAssessment.assess_pattern(symptom, answers)
-        sessions[session_id]["diagnostic_assessment"] = assessment
-        
-        return DiagnosticQuestionResponse(
-            session_id=session_id,
-            question="[Assessment Complete]",
-            question_number=len(answers) + 1,
-            symptom=symptom
-        )
-    
-    return DiagnosticQuestionResponse(
-        session_id=session_id,
-        question=next_question,
-        question_number=len(answers) + 1,
-        symptom=symptom
-    )
-
-
-@app.post("/api/diagnostic-answer/{session_id}")
-async def submit_diagnostic_answer(session_id: str, answer: Dict):
-    """
-    Submit answer to diagnostic question
-    """
-    
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    sessions[session_id]["diagnostic_answers"].append(answer["answer"])
-    
-    return {
-        "success": True,
-        "answers_count": len(sessions[session_id]["diagnostic_answers"])
-    }
 
 
 @app.get("/api/triage-result/{session_id}")
@@ -269,10 +231,15 @@ async def get_triage_result(session_id: str):
     
     patient_profile = triage_engine.get_patient_profile()
     risk_score_obj = sessions[session_id]["risk_assessment"]
+    ml_predictions = sessions[session_id].get("ml_predictions", [])  # ✅ ADDED
     
-    rag_response = rag_system.generate_grounded_response(
-        patient_profile.primary_symptom or ""
-    )
+    # =========================================
+    # 🧠 RAG QUERY (FINAL)
+    # =========================================
+    rag_query = f"{patient_profile.primary_symptom} {ml_predictions}"
+
+    rag_response = rag_system.generate_grounded_response(rag_query)
+    
     
     return {
         "session_id": session_id,
@@ -283,107 +250,5 @@ async def get_triage_result(session_id: str):
         "reasoning": risk_score_obj.reasoning,
         "recommendations": risk_score_obj.recommendations,
         "relevant_guidance": rag_response["guidance"],
+        "ml_predictions": ml_predictions  # ✅ ADDED
     }
-
-
-@app.get("/api/analysis-report/{session_id}")
-async def get_analysis_report(session_id: str):
-    """Get Grok + Gemini analysis report"""
-    
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    if "analysis_result" not in sessions[session_id]:
-        raise HTTPException(status_code=400, detail="Analysis not available")
-    
-    result = sessions[session_id]["analysis_result"]
-    
-    return {
-        "session_id": session_id,
-        "grok_analysis": result["grok_analysis"],
-        "final_report": result["final_report"],
-        "urgency_level": result["urgency_level"],
-        "timestamp": sessions[session_id]["created_at"]
-    }
-
-
-@app.get("/api/diagnostic-assessment/{session_id}")
-async def get_diagnostic_assessment(session_id: str):
-    """Get diagnostic assessment (triage-based)"""
-    
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    if "diagnostic_assessment" not in sessions[session_id]:
-        raise HTTPException(status_code=400, detail="Assessment not available")
-    
-    assessment = sessions[session_id]["diagnostic_assessment"]
-    answers = sessions[session_id]["diagnostic_answers"]
-    
-    return {
-        "session_id": session_id,
-        "symptom": sessions[session_id].get("current_symptom"),
-        "answers": answers,
-        "assessment": assessment
-    }
-
-
-@app.delete("/api/session/{session_id}")
-async def delete_session(session_id: str):
-    """Delete session"""
-    
-    if session_id in sessions:
-        del sessions[session_id]
-        return {"message": "Session deleted"}
-    
-    raise HTTPException(status_code=404, detail="Session not found")
-
-
-# ============================================================================
-# Error Handlers
-# ============================================================================
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """Handle HTTP exceptions"""
-    return {
-        "error": exc.detail,
-        "status_code": exc.status_code
-    }
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    """Handle general exceptions"""
-    logger.error(f"Unhandled exception: {exc}")
-    return {
-        "error": "Internal server error",
-        "status_code": 500
-    }
-
-
-# ============================================================================
-# Startup/Shutdown
-# ============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize on startup"""
-    logger.info("HealthMate Advanced Backend starting...")
-    logger.info("Features: Grok AI, Gemini Reports, Triage-Based Diagnostics")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    logger.info("HealthMate Advanced Backend shutting down...")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info"
-    )

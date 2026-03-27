@@ -340,7 +340,7 @@ class MedicalKnowledgeBase:
         """Initialize embedding model and FAISS index"""
         try:
             if FAISS_AVAILABLE:
-                self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+                self.model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
                 self.document_texts = [doc["content"] for doc in self.documents]
                 self.embeddings = self.model.encode(self.document_texts, convert_to_numpy=True)
                 self.embeddings = np.asarray(self.embeddings).astype('float32')
@@ -378,7 +378,7 @@ class MedicalKnowledgeBase:
                 if idx < len(self.documents):
                     results.append({
                         "document": self.documents[idx],
-                        "relevance_score": float(1 / (1 + distances[0][len(results)])),
+                        "relevance_score": float(1 / (1 + distances[0][i])),
                     })
             
             return results

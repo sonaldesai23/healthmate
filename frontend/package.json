@@ -4,10 +4,11 @@
   "description": "HealthMate Advanced - Frontend with React (Netlify)",
   "private": true,
   "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "axios": "^1.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "axios": "^1.6.0"
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
